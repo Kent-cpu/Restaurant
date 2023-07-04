@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RestorauntAPI.Data;
@@ -28,40 +23,45 @@ namespace RestorauntAPI.Controllers
         [Authorize(Roles = "admin")]
         public async Task<ActionResult<IEnumerable<Booking>>> GetBookings()
         {
-          if (_context.Bookings == null)
-          {
-              return NotFound();
-          }
-            return await _context.Bookings.ToListAsync();
+            if (_context.Bookings == null)
+            {
+                return NotFound();
+            }
+            var bookings = await _context.Bookings
+                .Include(b => b.Table)
+                .Include(b => b.User)
+                .Select(b => new
+                {
+                    id = b.ID,
+                    TableName = b.Table.Name,
+                    Username = b.User.Username,
+                    b.Date,
+                }).ToListAsync();
+
+            return Ok(bookings);
         }
 
-        [HttpGet("mybookings")]
-        [Authorize(Roles = "admin, User")]
-        public async Task<ActionResult<IEnumerable<UserBookingsDTO>>> GetUserBookings()
+        [HttpGet("mybookings/{userId}")]
+        [Authorize(Roles = "user")]
+        public async Task<ActionResult<IEnumerable<UserBookingsDTO>>> GetUserBookings(int userId)
         {
-            var userID = GetCurrentUserID();
-            // Проверяем, что userID не равен 0 (или другому значению, которое вы используете для обозначения недействительного или отсутствующего идентификатора пользователя)
-            if (userID == 0)
-            {
-                return Forbid();
-            }
-
             // Проверяем наличие пользователя с указанным ID
-            var user = await _context.Users.FindAsync(userID);
+            var user = await _context.Users.FindAsync(userId);
             if (user == null)
             {
                 return NotFound("User not found.");
             }
-
+            DateTime today = DateTime.Today;
             // Ищем бронирования пользователя
             var bookings = await _context.Bookings
                 .Include(b => b.Table)
-                .Where(b => b.UserID == userID)
+                .Where(b => b.UserID == userId && b.Date >= today)
                 .ToListAsync();
 
             // Создаем DTO объекты для передачи данных
             var userBookingsDTO = bookings.Select(b => new UserBookingsDTO
             {
+                Id = b.ID,
                 Date = b.Date,
                 TimeFrom = b.TimeFrom,
                 TimeTo = b.TimeTo,
@@ -71,72 +71,41 @@ namespace RestorauntAPI.Controllers
             return userBookingsDTO;
         }
 
-        // GET: api/Bookings/5
-        [HttpGet("{id}")]
-        [Authorize(Roles = "admin")]
-        public async Task<ActionResult<Booking>> GetBooking(int id)
+        [HttpGet("mybookings/history/{userId}")]
+        [Authorize(Roles = "user")]
+        public async Task<ActionResult<IEnumerable<UserBookingsDTO>>> GetUserBookingsHistory(int userId)
         {
-          if (_context.Bookings == null)
-          {
-              return NotFound();
-          }
-            var booking = await _context.Bookings.FindAsync(id);
-
-            if (booking == null)
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null)
             {
-                return NotFound();
+                return NotFound("User not found.");
             }
+            
+            var bookings = await _context.Bookings
+                .Include(b => b.Table)
+                .Where(b => b.UserID == userId)
+                .ToListAsync();
 
-            return booking;
+            // Создаем DTO объекты для передачи данных
+            var userBookingsDTO = bookings.Select(b => new UserBookingsDTO
+            {
+                Id = b.ID,
+                Date = b.Date,
+                TimeFrom = b.TimeFrom,
+                TimeTo = b.TimeTo,
+                TableName = b.Table.Name
+            }).ToList();
+
+            return userBookingsDTO;
         }
 
-        // PUT: api/Bookings/5
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
-        [HttpPut("{id}")]
-        [Authorize(Roles = "admin")]
-        public async Task<IActionResult> PutBooking(int id, BookingDTO newBooking)
-        {
-            Booking booking = new Booking
-            {
-                ID = id,
-                UserID = newBooking.UserID,
-                TableID = newBooking.TableID,
-                Date = newBooking.Date,
-                TimeFrom = TimeSpan.Parse(newBooking.TimeFrom),
-                TimeTo = TimeSpan.Parse(newBooking.TimeTo),
-            };
-            if (id != booking.ID)
-            {
-                return BadRequest();
-            }
-
-            _context.Entry(booking).State = EntityState.Modified;
-
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!BookingExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
-            }
-
-            return NoContent();
-        }
 
         // POST: api/Bookings
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPost]
-        [Authorize(Roles = "admin, user")]
-        public async Task<ActionResult<Booking>> PostBooking(BookingDTO newBooking)
+        [Authorize(Roles = "user")]
+        public async Task<ActionResult<Booking>> PostBooking([FromBody] BookingDTO newBooking)
         {
+
             Booking booking = new Booking
             {
                 UserID = newBooking.UserID,
@@ -145,10 +114,12 @@ namespace RestorauntAPI.Controllers
                 TimeFrom = TimeSpan.Parse(newBooking.TimeFrom),
                 TimeTo = TimeSpan.Parse(newBooking.TimeTo),
             };
+
             if (_context.Bookings == null)
-          {
-              return Problem("Entity set 'RestorauntDBContext.Bookings'  is null.");
-          }
+            {
+                return Problem("Entity set 'RestorauntDBContext.Bookings'  is null.");
+            }
+
             _context.Bookings.Add(booking);
             await _context.SaveChangesAsync();
 
@@ -157,13 +128,9 @@ namespace RestorauntAPI.Controllers
 
         // DELETE: api/Bookings/5
         [HttpDelete("{id}")]
-        [Authorize(Roles = "admin")]
+        [Authorize(Roles = "user")]
         public async Task<IActionResult> DeleteBooking(int id)
         {
-            if (_context.Bookings == null)
-            {
-                return NotFound();
-            }
             var booking = await _context.Bookings.FindAsync(id);
             if (booking == null)
             {
@@ -174,11 +141,6 @@ namespace RestorauntAPI.Controllers
             await _context.SaveChangesAsync();
 
             return NoContent();
-        }
-
-        private bool BookingExists(int id)
-        {
-            return (_context.Bookings?.Any(e => e.ID == id)).GetValueOrDefault();
         }
     }
 }

@@ -10589,11 +10589,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\rusla\\Downloads\\RestorauntAPI-master\\RestorauntAPI\\RestorauntAPI.csproj",
+      "projectUniqueName": "D:\\Restaurant\\server\\RestorauntAPI\\RestorauntAPI.csproj",
       "projectName": "RestorauntAPI",
-      "projectPath": "C:\\Users\\rusla\\Downloads\\RestorauntAPI-master\\RestorauntAPI\\RestorauntAPI.csproj",
+      "projectPath": "D:\\Restaurant\\server\\RestorauntAPI\\RestorauntAPI.csproj",
       "packagesPath": "C:\\Users\\rusla\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\rusla\\Downloads\\RestorauntAPI-master\\RestorauntAPI\\obj\\",
+      "outputPath": "D:\\Restaurant\\server\\RestorauntAPI\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\rusla\\AppData\\Roaming\\NuGet\\NuGet.Config",

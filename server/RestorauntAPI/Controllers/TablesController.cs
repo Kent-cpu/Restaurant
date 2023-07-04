@@ -36,22 +36,14 @@ namespace RestorauntAPI.Controllers
         }
 
         [HttpGet("free")]
-        [Authorize(Roles = "admin, User")]
+        [Authorize(Roles = "user")]
         public async Task<ActionResult<IEnumerable<Table>>> GetFreeTables(string date, string timeFrom, string timeTo)
         {
-            var userID = GetCurrentUserID();
-            // Проверяем, что userID не равен 0 (или другому значению, которое вы используете для обозначения недействительного или отсутствующего идентификатора пользователя)
-            if (userID == 0)
-            {
-                return Forbid();
-            }
-            // Проверяем наличие имени, даты, времени начала и времени окончания
             if (string.IsNullOrEmpty(date) || string.IsNullOrEmpty(timeFrom) || string.IsNullOrEmpty(timeTo))
             {
                 return BadRequest("date, timeFrom, and timeTo are required.");
             }
 
-            // Преобразуем дату из строки в объект DateTime
             if (!DateTime.TryParse(date, out DateTime bookingDate))
             {
                 return BadRequest("Invalid date format.");
@@ -60,91 +52,115 @@ namespace RestorauntAPI.Controllers
             TimeSpan from;
             TimeSpan to;
 
-            // Проверяем корректность формата времени начала
             if (!TimeSpan.TryParse(timeFrom, out from))
             {
                 return BadRequest("Invalid timeFrom format.");
             }
 
-            // Проверяем корректность формата времени окончания
             if (!TimeSpan.TryParse(timeTo, out to))
             {
                 return BadRequest("Invalid timeTo format.");
             }
 
-            // Отбрасываем время, оставляя только год, месяц и день
             var bookingDateWithoutTime = bookingDate.Date;
-
-            // Ищем все бронирования на указанную дату и в заданном интервале времени
             var bookings = await _context.Bookings
                 .Where(b => b.Date.Date == bookingDateWithoutTime && !(from >= b.TimeTo || to <= b.TimeFrom))
                 .ToListAsync();
 
-            // Получаем все столики с указанным именем
+            
             var tables = await _context.Tables.ToListAsync();
-
-            // Фильтруем столики, исключая забронированные на указанную дату и в заданном интервале времени
             var freeTables = tables.Where(t => !bookings.Any(b => b.TableID == t.ID)).ToList();
 
             return freeTables;
         }
 
-        // GET: api/Tables/5
-        [HttpGet("{id}")]
-        [Authorize(Roles = "admin")]
-        public async Task<ActionResult<Table>> GetTable(int id)
+        [HttpGet("free/sorted/desc")]
+        [Authorize(Roles = "user")]
+        public async Task<ActionResult<IEnumerable<Table>>> GetFreeTablesSortedByCapacityDescending(string date, string timeFrom, string timeTo)
         {
-          if (_context.Tables == null)
-          {
-              return NotFound();
-          }
-            var table = await _context.Tables.FindAsync(id);
-
-            if (table == null)
+            if (string.IsNullOrEmpty(date) || string.IsNullOrEmpty(timeFrom) || string.IsNullOrEmpty(timeTo))
             {
-                return NotFound();
+                return BadRequest("date, timeFrom, and timeTo are required.");
             }
 
-            return table;
+            if (!DateTime.TryParse(date, out DateTime bookingDate))
+            {
+                return BadRequest("Invalid date format.");
+            }
+
+            TimeSpan from;
+            TimeSpan to;
+
+            if (!TimeSpan.TryParse(timeFrom, out from))
+            {
+                return BadRequest("Invalid timeFrom format.");
+            }
+
+            if (!TimeSpan.TryParse(timeTo, out to))
+            {
+                return BadRequest("Invalid timeTo format.");
+            }
+
+           
+            var bookingDateWithoutTime = bookingDate.Date;
+
+            var bookings = await _context.Bookings
+                .Where(b => b.Date.Date == bookingDateWithoutTime && !(from >= b.TimeTo || to <= b.TimeFrom))
+                .ToListAsync();
+
+
+            var tables = await _context.Tables.ToListAsync();
+            var freeTables = tables.Where(t => !bookings.Any(b => b.TableID == t.ID)).ToList();
+            freeTables = freeTables.OrderByDescending(t => t.Capacity).ToList();
+
+            return freeTables;
         }
 
-        // PUT: api/Tables/5
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
-        [HttpPut("{id}")]
-        [Authorize(Roles = "admin")]
-        public async Task<IActionResult> PutTable(int id, TableDTO newTable)
+
+        [HttpGet("free/sorted/asc")]
+        [Authorize(Roles = "user")]
+        public async Task<ActionResult<IEnumerable<Table>>> GetFreeTablesSortedByCapacityAscending(string date, string timeFrom, string timeTo)
         {
-            Table table = new Table
+            if (string.IsNullOrEmpty(date) || string.IsNullOrEmpty(timeFrom) || string.IsNullOrEmpty(timeTo))
             {
-                ID = id,
-                Name = newTable.Name,
-                Capacity = newTable.Capacity,
-            };
-            if (id != table.ID)
-            {
-                return BadRequest();
+                return BadRequest("date, timeFrom, and timeTo are required.");
             }
 
-            _context.Entry(table).State = EntityState.Modified;
-
-            try
+            if (!DateTime.TryParse(date, out DateTime bookingDate))
             {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!TableExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
+                return BadRequest("Invalid date format.");
             }
 
-            return NoContent();
+            TimeSpan from;
+            TimeSpan to;
+
+            if (!TimeSpan.TryParse(timeFrom, out from))
+            {
+                return BadRequest("Invalid timeFrom format.");
+            }
+
+            if (!TimeSpan.TryParse(timeTo, out to))
+            {
+                return BadRequest("Invalid timeTo format.");
+            }
+
+
+            var bookingDateWithoutTime = bookingDate.Date;
+
+            var bookings = await _context.Bookings
+                .Where(b => b.Date.Date == bookingDateWithoutTime && !(from >= b.TimeTo || to <= b.TimeFrom))
+                .ToListAsync();
+
+
+            var tables = await _context.Tables.ToListAsync();
+            var freeTables = tables.Where(t => !bookings.Any(b => b.TableID == t.ID)).ToList();
+            freeTables = freeTables.OrderByDescending(t => t.Capacity).ToList();
+            freeTables = freeTables.OrderBy(t => t.Capacity).ToList();
+
+            return freeTables;
         }
+
+
 
         // POST: api/Tables
         // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
@@ -186,11 +202,6 @@ namespace RestorauntAPI.Controllers
             await _context.SaveChangesAsync();
 
             return NoContent();
-        }
-
-        private bool TableExists(int id)
-        {
-            return (_context.Tables?.Any(e => e.ID == id)).GetValueOrDefault();
         }
     }
 }
